@@ -1,4 +1,0 @@
-1) I do single label classification, picking one common or serious ADR and predicting for it.
-   The model would take in information about a drug, and output a binary yes/no for if it has the ADR that the model is trained for.
-
-2) I do multi label classification, training for percentage confidence values on any ADR's from the dataset.
