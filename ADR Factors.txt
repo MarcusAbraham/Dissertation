@@ -7,5 +7,4 @@ I'd like to use all three for my predictions
 
 "Each drug is associated with a 1385-dimensional binary side-effect profile. Additionally, the drug is represented by three types of features: chemical properties (encoded using 881 chemical substructures), biological properties (including drug protein targets, transporters, enzymes, and pathway information), and phenotypic properties (indications and other known ADRs)"
 
-
 I will need to choose between single or multi label classification of ADRs. Either I’m making a model which can predict for one specific ADR, or I’m trying to make a model which can predict for all ADR’s a compound may have. 

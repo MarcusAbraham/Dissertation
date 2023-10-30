@@ -2,3 +2,7 @@ Topic: ADR Prediction
 Model type: Hybrid, single label prediction
 Data: A mix of ChEMBL, PubChem and SIDER
 Methods: Implement existing models for the data, as well as my hybrid model, and compare their performance
+
+My understand of what the hybrid model will look like:
+I will likely have three models, one for capturing patterns in the chemical structures, one for the protein interactions, and one for
+side effects. I then combine each of these outputs, run it through an FC layer, and get my predictions.
