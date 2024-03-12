@@ -1,0 +1,20 @@
+-Clean my data by removing all instances where compounds didn't have a 3d version. Look for ",,,,,"
+
+-Calculate bond lengths and bond angles with the data i've gathered
+
+-Figure out how to graphically represent the data i've gathered, and what that would look like
+
+-Add to my "visualise_smiles.py", so that it visualises 3d as well, to prove i can do that
+
+-Create my GCN model, that accepts the 3d format i figured out before.
+	-Remember spatial vs spectral convolutional networks
+
+-Use a traditional machine learning method like logistic regression for SMILES strings, to benchmark
+
+-Modify the DDI-GCN code to use SMILES strings, to benchmark
+
+I NEED:
+[X] Atoms, [X] Bonds, [X] Coordinates, [X] Charge
+
+I NEED TO CALCULATE:
+Bond Lengths, Bond Angles and Dihedral Angles
