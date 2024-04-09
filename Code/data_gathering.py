@@ -1,3 +1,4 @@
+import math
 import requests
 import csv
 import re
@@ -171,23 +172,90 @@ def write_compound_info(filename, output_filename):
     print("File complete!")
 
 
+# Function to calculate distance between two atoms
+def calculate_distance(atom1_coords, atom2_coords):
+    x1, y1, z1 = atom1_coords
+    x2, y2, z2 = atom2_coords
+    distance = math.sqrt((x2 - x1)**2 + (y2 - y1)**2 + (z2 - z1)**2)
+    return distance
 
+
+# Function to parse coordinates string and convert to list of tuples
+def parse_list(coords_str):
+    coords_str = coords_str.strip("[]()")  # Remove brackets and parentheses
+    coords_list = coords_str.split("), (")  # Split by "), ("
+    coords_list = [eval(coord) for coord in coords_list]  # Use eval to convert each coordinate string to a tuple
+    return coords_list
+
+
+def calculate_bond_lengths(filename, output_filename):
+
+    with open(filename, mode='r') as file:
+        reader = csv.DictReader(file)
+        fieldnames = reader.fieldnames[:]
+
+        # Find the index of the "STITCH 1" column
+        stitch_index1 = fieldnames.index('# STITCH 1')
+        # Insert new fieldnames to the immediate right of "STITCH 1"
+        fieldnames.insert(stitch_index1 + 5, 'C1 Computed Lengths')
+        fieldnames.insert(stitch_index1 + 10, 'C2 Computed Lengths')
+
+        with open(output_filename, mode='a', newline='') as output_file:
+            writer = csv.DictWriter(output_file, fieldnames=fieldnames)
+            # Write the header row only if the file is empty
+            if output_file.tell() == 0:
+                writer.writeheader()
+
+            for index, row in enumerate(reader):
+
+                # Get the coordinates of the compounds
+                c1_atom_coords = parse_list(row['C1 Coords'])
+
+                c2_atom_coords = parse_list(row['C2 Coords'])
+
+                # Get the bonds between the atoms
+                c1_atom_bonds = parse_list(row['C1 Bonds'])
+                c2_atom_bonds = parse_list(row['C2 Bonds'])
+
+                # CALCULATE THE FIRST BOND LENGTHS HERE
+                c1_distances = []
+                for bond1 in c1_atom_bonds:
+                    atom1_index, atom2_index, _ = bond1
+                    atom1_coords = c1_atom_coords[atom1_index - 1][2:]
+                    atom2_coords = c1_atom_coords[atom2_index - 1][2:]
+                    distance = calculate_distance(atom1_coords, atom2_coords)
+                    c1_distances.append((atom1_index, atom2_index, distance))
+
+                # CALCULATE THE SECOND BOND LENGTHS HERE
+                c2_distances = []
+                for bond2 in c2_atom_bonds:
+                    atom1_index, atom2_index, _ = bond2
+                    atom1_coords = c2_atom_coords[atom1_index - 1][2:]
+                    atom2_coords = c2_atom_coords[atom2_index - 1][2:]
+                    distance = calculate_distance(atom1_coords, atom2_coords)
+                    c2_distances.append((atom1_index, atom2_index, distance))
+
+                # Insert the information to the new columns
+                row['C1 Computed Lengths'] = c1_distances
+                row['C2 Computed Lengths'] = c2_distances
+
+                print(row)
+                writer.writerow(row)
+        print("Distances calculated!")
+
+
+'''
 # Testing with Aspirin:
 canonical_smiles, parsed_coords, parsed_bonds, parsed_charges = get_compound_info(2244)
 print("Aspirin Canonical SMILES:", canonical_smiles)
 print("Aspirin Atom Info:", parsed_coords)
 print("Aspirin Bond Info:", parsed_bonds)
 print("Paracetamol Charge Info:", parsed_charges)
-
 print("\n")
+'''
 
-# Testing with Paracetamol:
-canonical_smiles, parsed_coords, parsed_bonds, parsed_charges = get_compound_info(1983)
-print("[Paracetamol Canonical SMILES:", canonical_smiles)
-print("Paracetamol Atom Info:", parsed_coords)
-print("Paracetamol Bond Info:", parsed_bonds)
-print("Paracetamol Charge Info:", parsed_charges)
+# RUN THIS TO WRITE THE COMPOUND INFO
+# write_compound_info("ChChSe-Decagon_polypharmacy/ChChSe-Decagon_polypharmacy.csv", "ChChSe-Decagon_polypharmacy/gatheredData.csv")
 
-print("\n")
-
-write_compound_info("ChChSe-Decagon_polypharmacy/ChChSe-Decagon_polypharmacy.csv", "ChChSe-Decagon_polypharmacy/cleanedData.csv")
+# ADD THE BOND LENGTHS
+#calculate_bond_lengths("ChChSe-Decagon_polypharmacy/cleanedData.csv", "ChChSe-Decagon_polypharmacy/computedData.csv")
