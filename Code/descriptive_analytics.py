@@ -45,6 +45,6 @@ def filter_data(filename):
 count_side_effects("ChChSe-Decagon_polypharmacy/computedData.csv")
 count_unique_values("ChChSe-Decagon_polypharmacy/computedData.csv")
 
-#Filter the data
+# Filter the data
 filter_data("ChChSe-Decagon_polypharmacy/computedData.csv")
 
