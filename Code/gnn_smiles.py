@@ -10,6 +10,7 @@ from torch_geometric.nn import GCNConv, global_mean_pool
 from torch_geometric.data import Data
 
 
+# Class for the 2D-GCN
 class GCNGraphClassifier(nn.Module):
     def __init__(self, input_dim, hidden_dim, output_dim):
         super(GCNGraphClassifier, self).__init__()
@@ -21,33 +22,37 @@ class GCNGraphClassifier(nn.Module):
     def forward(self, data):
         x, edge_index, batch = data.x, data.edge_index, data.batch
 
+        # Apply convolutions and ReLu
         x = self.conv1(x, edge_index)
         x = F.relu(x)
         x = self.conv2(x, edge_index)
         x = F.relu(x)
         x = self.conv3(x, edge_index)
         x = F.relu(x)
-        x = global_mean_pool(x, batch)  # Use global mean pooling
+
+        # Pool the node level embeddings learned from the hidden layers
+        x = global_mean_pool(x, batch)
         x = self.fc(x)
 
         return F.log_softmax(x, dim=1)
 
 
+# Function to convert SMILES to feature and adjacency matrix's
 def smiles_to_graph(smiles):
+    # Get the molecule from the SMILES string
     mol = Chem.MolFromSmiles(smiles)
     if mol is not None:
-        # Convert molecule to graph
+        # Convert molecule to adjacency matrix
         adj_matrix = torch.tensor(Chem.GetAdjacencyMatrix(mol))
         features = []
+        # Get the features for each atom
         for atom in mol.GetAtoms():
-            # Extract features for each atom
             atom_features = []
-
-            # Atomic number
+            # Get Atomic number
             atom_features.append(atom.GetAtomicNum())
-            # Formal charge
+            # Get Formal charge
             atom_features.append(atom.GetFormalCharge())
-            # Atomic mass
+            # Get Atomic mass
             atom_features.append(atom.GetMass())
 
             features.append(atom_features)
@@ -81,7 +86,7 @@ for idx, (smiles1, smiles2, side_effect) in enumerate(zip(smiles1, smiles2, side
     features2, adj_matrix2 = smiles_to_graph(smiles2)
 
     if features1 is not None and features2 is not None:
-        # PAD THE ADJACENCY MATRICES TO MATCH THE SIZES
+        # Pad the adjacency matrix's to match the sizes
         max_num_atoms = max(adj_matrix1.size(0), adj_matrix2.size(0))
         pad1 = max_num_atoms - adj_matrix1.size(0)
         pad2 = max_num_atoms - adj_matrix2.size(0)
@@ -91,14 +96,14 @@ for idx, (smiles1, smiles2, side_effect) in enumerate(zip(smiles1, smiles2, side
         # Calculate edge indexes
         edge_index1 = torch.nonzero(adj_matrix1, as_tuple=False).t().contiguous()
         edge_index2 = torch.nonzero(adj_matrix2, as_tuple=False).t().contiguous()
-        # Update edge indexes for the second graph
-        edge_index2 += features1.size(0)  # Offset the node indices for the second graph
+        # Offset edge indexes for the second graph
+        edge_index2 += features1.size(0)
 
         # Concatenate features and edge indexes
         concatenated_features = torch.cat((features1, features2), dim=0)
         concatenated_edge_index = torch.cat([edge_index1, edge_index2], dim=1)
 
-        #Make the side effect into a tensor label
+        # Make the side effect into a tensor label
         label = torch.tensor([side_effect_to_idx[side_effect]])
 
         # Create PyTorch Geometric Data object
@@ -110,30 +115,25 @@ for idx, (smiles1, smiles2, side_effect) in enumerate(zip(smiles1, smiles2, side
         graphs_data.append(data)
 
 # Split data into train and test sets
-random.seed(42)  # For reproducibility
-
+random.seed(42)
 random.shuffle(graphs_data)
-
-split_index = int(0.8 * len(graphs_data))  # 80% train, 20% test
-
+split_index = int(0.8 * len(graphs_data))
 train_data = graphs_data[:split_index]
 test_data = graphs_data[split_index:]
 
 # Define the dimensions
-input_dim = 3
+input_dim = 3  # Dimension of node features
 hidden_dim = 32  # Hidden dimension
 output_dim = len(unique_side_effects)  # Number of classes (labels)
 
 # Create an instance of the model
 model = GCNGraphClassifier(input_dim, hidden_dim, output_dim)
-
-# Define your loss function
+# Define the loss function
 criterion = nn.CrossEntropyLoss()
-
-# Define your optimizer
+# Define the optimizer
 optimizer = optim.Adam(model.parameters())
 
-'''# Training loop
+# Training loop
 num_epochs = 10
 for epoch in range(num_epochs):
     total_loss = 0
@@ -155,9 +155,9 @@ for epoch in range(num_epochs):
         optimizer.step()
 
     # Print average loss
-    print(f"Epoch [{epoch + 1}/{num_epochs}], Training Loss: {total_loss / len(train_data)}")'''
+    print(f"Epoch [{epoch + 1}/{num_epochs}], Training Loss: {total_loss / len(train_data)}")
 
-# Evaluation after training
+# Evaluation loop
 with torch.no_grad():
     model.eval()
     true_labels = []

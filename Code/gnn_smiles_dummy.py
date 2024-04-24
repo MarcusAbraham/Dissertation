@@ -7,6 +7,7 @@ from torch_geometric.data import Data
 import random
 
 
+# Class for the 2D-GCN
 class GCNClassifier(nn.Module):
     def __init__(self, input_dim, hidden_dim, output_dim):
         super(GCNClassifier, self).__init__()
@@ -17,17 +18,20 @@ class GCNClassifier(nn.Module):
     def forward(self, data):
         x, edge_index, batch = data.x, data.edge_index, data.batch
 
+        # Apply convolutions and ReLu
         x = self.conv1(x, edge_index)
         x = F.relu(x)
         x = self.conv2(x, edge_index)
         x = F.relu(x)
 
-        x = global_mean_pool(x, batch)  # Use global mean pooling
+        # Pool the node level embeddings learned from the hidden layers
+        x = global_mean_pool(x, batch)
         x = self.fc(x)
 
         return F.log_softmax(x, dim=1)
 
 
+# Initialise some dummy data
 graphs_data = [
     Data(x=torch.randn(4, 5), edge_index=torch.tensor([[0, 1, 2, 0], [1, 0, 2, 2]]), y=torch.tensor([0])),
     Data(x=torch.randn(3, 5), edge_index=torch.tensor([[0, 1, 2], [1, 0, 2]]), y=torch.tensor([1])),
@@ -41,10 +45,9 @@ graphs_data = [
 ]
 
 # Split data into train and test sets
-random.seed(42)  # For reproducibility
+random.seed(42)
 random.shuffle(graphs_data)
-split_index = int(0.8 * len(graphs_data))  # 80% train, 20% test
-
+split_index = int(0.8 * len(graphs_data))
 train_data = graphs_data[:split_index]
 test_data = graphs_data[split_index:]
 
@@ -56,10 +59,9 @@ output_dim = 3  # Number of classes (labels)
 # Create an instance of the model
 model = GCNClassifier(input_dim, hidden_dim, output_dim)
 
-# Define your loss function
+# Define the loss function
 criterion = nn.CrossEntropyLoss()
-
-# Define your optimizer
+# Define the optimizer
 optimizer = optim.Adam(model.parameters())
 
 # Training loop
@@ -82,7 +84,7 @@ for epoch in range(num_epochs):
     # Print average loss
     print(f"Epoch [{epoch + 1}/{num_epochs}], Average Loss: {total_loss / len(train_data)}")
 
-# Evaluation after training
+# Evaluation loop
 with torch.no_grad():
     model.eval()
     correct = 0

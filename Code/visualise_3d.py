@@ -4,7 +4,7 @@ import networkx as nx
 # Create a graph
 G = nx.Graph()
 
-# Add nodes with multiple attributes
+# Add nodes with multiple attributes (dummy data)
 G.add_nodes_from([(1, {'pos': (0, 0, 0), 'info': {'label': 'Node 1', 'color': 'blue'}}),
                   (2, {'pos': (1, 1, 1), 'info': {'label': 'Node 2', 'color': 'red'}}),
                   (3, {'pos': (2, 2, 2), 'info': {'label': 'Node 3', 'color': 'green'}}),
@@ -18,20 +18,6 @@ G.add_edges_from([(1, 2, {'weight': 2}),
 
 # Extract node positions
 node_pos = nx.get_node_attributes(G, 'pos')
-
-# Define the callback for handling clicks on nodes
-def display_info(trace, points, state):
-    if points.trace_index == 0:  # Node trace
-        node_index = points.point_inds[0]
-        node_data = trace.hovertext[node_index]
-        print("Clicked Node Info:")
-        for key, value in node_data.items():
-            print(f"{key}: {value}")
-    else:  # Edge trace
-        edge_index = points.point_inds[0]
-        edge_data = trace.hovertext[edge_index]
-        print("Clicked Edge Info:")
-        print(edge_data)
 
 # Create node traces
 node_trace = go.Scatter3d(
@@ -90,10 +76,5 @@ fig.update_layout(
     clickmode='event+select'
 )
 
-# Assign the callback to the node and edge traces
-fig.data[0].on_click(display_info)  # Node trace
-for i in range(1, len(fig.data)):
-    fig.data[i].on_click(display_info)  # Edge traces
-
-# Show plot
+# Plot 3d visualisation
 fig.show()

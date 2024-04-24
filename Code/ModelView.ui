@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>366</width>
-    <height>617</height>
+    <height>269</height>
    </rect>
   </property>
   <property name="font">
@@ -160,34 +160,11 @@ border-radius: 10px;</string>
      <string>Prediction Text</string>
     </property>
    </widget>
-   <widget class="QLabel" name="label">
-    <property name="geometry">
-     <rect>
-      <x>20</x>
-      <y>270</y>
-      <width>321</width>
-      <height>331</height>
-     </rect>
-    </property>
-    <property name="font">
-     <font>
-      <family>Rockwell</family>
-      <pointsize>10</pointsize>
-     </font>
-    </property>
-    <property name="styleSheet">
-     <string notr="true">color: rgb(255, 255, 255)</string>
-    </property>
-    <property name="text">
-     <string>Feature Weights</string>
-    </property>
-   </widget>
    <zorder>Prediction</zorder>
    <zorder>Id1</zorder>
    <zorder>Id2</zorder>
    <zorder>predictButton</zorder>
    <zorder>Title</zorder>
-   <zorder>label</zorder>
   </widget>
  </widget>
  <resources/>

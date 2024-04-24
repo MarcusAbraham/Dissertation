@@ -1,4 +1,3 @@
-
 import sys
 import random
 import re
@@ -14,10 +13,11 @@ from torch_geometric.nn import GCNConv, global_mean_pool
 from torch_geometric.data import Data
 import plotly.graph_objs as go
 from ModelView import Ui_ModelView
-import data_gathering
+from data_gathering import get_compound_info, calculate_distance
 import graph_creation
 
 
+# Class for the 3D-DDI-GCN Model
 class GCNGraphClassifier(nn.Module):
     def __init__(self, input_dim, hidden_dim, output_dim):
         super(GCNGraphClassifier, self).__init__()
@@ -30,6 +30,7 @@ class GCNGraphClassifier(nn.Module):
     def forward(self, data):
         x, edge_index, edge_attributes, batch = data.x, data.edge_index, data.edge_attr, data.batch
 
+        # Apply convolutions and ReLu
         x = self.conv1(x, edge_index, edge_attributes)
         x = F.relu(x)
         x = self.conv2(x, edge_index, edge_attributes)
@@ -42,29 +43,32 @@ class GCNGraphClassifier(nn.Module):
         # Weighted sum of node embeddings
         x_weighted = torch.matmul(x.t(), attention_weights).squeeze()
 
-        x = global_mean_pool(x, batch)  # Use global mean pooling
+        # Pool the node level embeddings learned from the hidden layers
+        x = global_mean_pool(x, batch)
         x = self.fc(x)
 
         return F.log_softmax(x, dim=1), attention_weights, x_weighted
 
 
+# Class to define the model view
 class ModelView(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        # Set up the user interface from Designer.
+        # Set up the user interface from PyQT Designer
         self.ui = Ui_ModelView()
         self.ui.setupUi(self)
 
-        # Connect the clicked signal of predictButton to the slot
+        # Connect the clicked signal of predictButton to 'predict_side_effect'
         self.ui.predictButton.clicked.connect(self.predict_side_effect)
 
+    # Function to predict the side effect for a given drug pair
     def predict_side_effect(self):
-        # Retrieve text from Smiles1 and Smiles2 text fields
+        # Retrieve input from Id1 and Id2 input fields
         Id1 = self.ui.Id1.text()
         Id2 = self.ui.Id2.text()
 
-        # Check if either of the text fields is empty
+        # Check if either of the input fields is empty, if so send an error message
         if not Id1 or not Id2:
             msg = QMessageBox()
             msg.setText("Please fill in both ID fields.")
@@ -72,20 +76,22 @@ class ModelView(QMainWindow):
             msg.exec()
         else:
             # Otherwise, begin the prediction
-            # Gets the compound ID of varying length, removes trailing 0's
+            # Get the compound ID of varying length, remove trailing 0's
             try:
                 Id1 = str(int(re.search(r'\d+', Id1).group()))
                 Id2 = str(int(re.search(r'\d+', Id2).group()))
             except:
                 print("User entered invalid Ids")
 
-            # Gather data for the both Ids
-            result1 = data_gathering.get_compound_info(Id1)
-            result2 = data_gathering.get_compound_info(Id2)
+            # Gather data for both Ids
+            result1 = get_compound_info(Id1)
+            result2 = get_compound_info(Id2)
             smiles1, coords1, bonds1, charges1 = result1
             smiles2, coords2, bonds2, charges2 = result2
 
+            # Check if 3d data is returned for both Id's
             if coords1 is None or coords2 is None:
+                # If not, prompt an error
                 if coords1 is None:
                     msg = QMessageBox()
                     msg.setText("First ID is invalid. Please enter a valid ID.")
@@ -103,7 +109,7 @@ class ModelView(QMainWindow):
                     atom1_index, atom2_index, _ = bond1
                     atom1_coords = coords1[atom1_index - 1][2:]
                     atom2_coords = coords1[atom2_index - 1][2:]
-                    distance = data_gathering.calculate_distance(atom1_coords, atom2_coords)
+                    distance = calculate_distance(atom1_coords, atom2_coords)
                     lengths1.append((atom1_index, atom2_index, distance))
 
                 # Calculate the second compounds bond lengths
@@ -112,21 +118,22 @@ class ModelView(QMainWindow):
                     atom1_index, atom2_index, _ = bond2
                     atom1_coords = coords2[atom1_index - 1][2:]
                     atom2_coords = coords2[atom2_index - 1][2:]
-                    distance = data_gathering.calculate_distance(atom1_coords, atom2_coords)
+                    distance = calculate_distance(atom1_coords, atom2_coords)
                     lengths2.append((atom1_index, atom2_index, distance))
 
-                # THEN CONSTRUCT ATOM GRAPHS FOR EACH COMPOUND
+                # Construct atom graphs for compound 1, and add charges, bonds, length
                 graph1 = graph_creation.create_coordinate_graphs([str(coords1)])
                 graph1 = graph_creation.add_charges(graph1, [str(charges1)])
                 graph1 = graph_creation.add_bonds(graph1, [str(bonds1)])
                 graph1 = graph_creation.add_lengths(graph1, [str(lengths1)])[0]
 
+                # Construct atom graphs for compound 2, and add charges, bonds, length
                 graph2 = graph_creation.create_coordinate_graphs([str(coords2)])
                 graph2 = graph_creation.add_charges(graph2, [str(charges2)])
                 graph2 = graph_creation.add_bonds(graph2, [str(bonds2)])
                 graph2 = graph_creation.add_lengths(graph2, [str(lengths2)])[0]
 
-                # THEN CONVERT THOSE GRAPHS TO DATA OBJECTS
+                # Convert the graphs to data objects
                 features1, edge_index1, edge_attributes1 = graph_creation.graph_to_data(graph1)
                 features2, edge_index2, edge_attributes2 = graph_creation.graph_to_data(graph2)
 
@@ -145,31 +152,31 @@ class ModelView(QMainWindow):
                                       edge_index=concatenated_edge_index,
                                       edge_attr=concatenated_edge_attributes)
 
-                # Make a prediction using the trained model
+                # Make a prediction using the trained model - retrieve the predicted label
                 output, attention_weights, x_weighted = model(input_data)
                 _, predicted_label = torch.max(output, 1)
 
                 # Create a new dictionary with reversed key-value pairs
                 idx_to_side_effect = {v: k for k, v in side_effect_to_idx.items()}
+
+                # Display the predicted side effect in the UI
                 self.ui.Prediction.setText(f"Prediction: {idx_to_side_effect.get(predicted_label.item())}")
 
-                # GET THE INFORMATION FOR THE FEATURE WEIGHTS
-                #feature_weights = attention_weights * x_weighted
-
-                # GET THE INFORMATION FOR THE NODE WEIGHTS
+                # Get the information for the node weights
                 # Convert attention weights tensor to numpy array for easier manipulation
-                attention_weights_np = attention_weights.detach().cpu().numpy()  # Detach the tensor before converting
-                # Step 1: Find the maximum attention weight
+                attention_weights_np = attention_weights.detach().cpu().numpy()
+                # Find the maximum attention weight
                 max_attention_weight = np.max(attention_weights_np)
-                # Step 2: Identify nodes with maximum attention weight
+                # Identify nodes with maximum attention weight
                 nodes_with_max_attention = np.where(attention_weights_np == max_attention_weight)[0]
-                # Step 3: Map indices to nodes (assuming your graph nodes are numbered sequentially)
+                # Indexes for graphs start at 1 VS nodes_with_max_attention that starts at 0
                 important_nodes = nodes_with_max_attention + 1
 
-                # THEN OPEN THE WINDOWS WHICH VISUALISE THE NODES
-                visualise_3d(atom_graphs1, atom_graphs2, important_nodes)
+                # Open the windows which visualise the nodes
+                visualise_3d(graph1, graph2, important_nodes)
 
 
+# Function to train the 3D-DDI-GCN model
 def train_model(train_data):
     # Training loop
     num_epochs = 10
@@ -179,6 +186,7 @@ def train_model(train_data):
         # Set the model to training mode
         model.train()
 
+        # Pass each data object in the training data to the model
         for graph_data in train_data:
             # Forward pass
             output = model(graph_data)[0]
@@ -196,19 +204,23 @@ def train_model(train_data):
         print(f"Epoch [{epoch + 1}/{num_epochs}], Training Loss: {total_loss / len(train_data)}")
 
 
+# Function to evaluate the 3D-DDI-GCN model
 def evaluate_model(test_data):
-    # Evaluation after training
+    # Evaluation loop
     with torch.no_grad():
+        # Set the model to evaluation mode
         model.eval()
         true_labels = []
         predicted_labels = []
 
+        # Pass each data object in the test data to the model, and get the predicted VS true labels
         for graph_data in test_data:
             output = model(graph_data)[0]
             _, predicted = torch.max(output, 1)
             true_labels.extend(graph_data.y.tolist())
             predicted_labels.extend(predicted.tolist())
 
+        # Calculate and print the models accuracy
         accuracy = accuracy_score(true_labels, predicted_labels)
         print(f"Accuracy: {accuracy}")
 
@@ -217,19 +229,16 @@ def evaluate_model(test_data):
         print(report)
 
 
-def visualise_3d(atom_graphs1, atom_graphs2, important_nodes):
-    # Assuming atom_graphs1 and atom_graphs2 are lists of NetworkX graphs
-    first_graph = atom_graphs1[5]
-    second_graph = atom_graphs2[5]
-
-    # Extract node positions and types for first_graph
+# Function to visualise 3D-DDI-GCN's predictions
+def visualise_3d(first_graph, second_graph, important_nodes):
+    # Extract node positions, types and charges for first_graph
     node_type_first = [data['atom_type'] for _, data in first_graph.nodes(data=True)]
     node_x_first = [data['x'] for _, data in first_graph.nodes(data=True)]
     node_y_first = [data['y'] for _, data in first_graph.nodes(data=True)]
     node_z_first = [data['z'] for _, data in first_graph.nodes(data=True)]
     node_charge_first = [data.get('charge', '0') for _, data in first_graph.nodes(data=True)]
 
-    # Define colors for nodes based on whether their 'index' property matches the number
+    # Define colors for nodes based on whether their 'index' property is in the important nodes list
     node_colors_first = ['yellow' if node_id in important_nodes else 'purple' for node_id, _ in
                          first_graph.nodes(data=True)]
 
@@ -241,7 +250,7 @@ def visualise_3d(atom_graphs1, atom_graphs2, important_nodes):
         mode='markers',
         marker=dict(
             size=8,
-            color=node_colors_first,  # Color based on node index
+            color=node_colors_first,
             line=dict(color='rgb(0,0,0)', width=1)
         ),
         hoverinfo='text',
@@ -277,13 +286,14 @@ def visualise_3d(atom_graphs1, atom_graphs2, important_nodes):
         else:
             print(f"Issue with node IDs in edge: {start} -> {end}")
 
-    # Extract node positions and types for second_graph
+    # Extract node positions, types and charges for second_graph
     node_type_second = [data['atom_type'] for _, data in second_graph.nodes(data=True)]
     node_x_second = [data['x'] for _, data in second_graph.nodes(data=True)]
     node_y_second = [data['y'] for _, data in second_graph.nodes(data=True)]
     node_z_second = [data['z'] for _, data in second_graph.nodes(data=True)]
     node_charge_second = [data.get('charge', '0') for _, data in second_graph.nodes(data=True)]
 
+    # Account for the length of the first graph (the important nodes assumes both graphs are concatenated
     important_nodes_second = [node - len(first_graph.nodes(data=True)) for node in important_nodes]
 
     # Define colors for nodes based on whether their 'index' property matches the number
@@ -298,7 +308,7 @@ def visualise_3d(atom_graphs1, atom_graphs2, important_nodes):
         mode='markers',
         marker=dict(
             size=8,
-            color=node_colors_second,  # Color based on node index
+            color=node_colors_second,
             line=dict(color='rgb(0,0,0)', width=1)
         ),
         hoverinfo='text',
@@ -334,7 +344,7 @@ def visualise_3d(atom_graphs1, atom_graphs2, important_nodes):
         else:
             print(f"Issue with node IDs in edge: {start} -> {end}")
 
-    # Create layout (same as before)
+    # Create the visualisation layout
     layout = go.Layout(
         title='3D Graph Visualization',
         showlegend=False,
@@ -349,7 +359,7 @@ def visualise_3d(atom_graphs1, atom_graphs2, important_nodes):
             b=0,
             t=0
         ),
-        hovermode='closest'  # Enables the hover mode closest to the point
+        hovermode='closest'
     )
 
     # Combine traces and create figure for first_graph
@@ -365,7 +375,7 @@ def visualise_3d(atom_graphs1, atom_graphs2, important_nodes):
 # Read the dataset
 df = pd.read_csv("ChChSe-Decagon_polypharmacy/filteredData.csv")
 
-# Extract features and target variable
+# Extract 3d compound information and side effects
 coords1 = df['C1 Coords']
 charges1 = df['C1 Charges']
 bonds1 = df['C1 Bonds']
@@ -378,11 +388,13 @@ lengths2 = df['C2 Computed Lengths']
 
 side_effects = df["Side Effect Name"]
 
+# Create atom graphs for the first compound
 atom_graphs1 = graph_creation.create_coordinate_graphs(coords1)
 atom_graphs1 = graph_creation.add_charges(atom_graphs1, charges1)
 atom_graphs1 = graph_creation.add_bonds(atom_graphs1, bonds1)
 atom_graphs1 = graph_creation.add_lengths(atom_graphs1, lengths1)
 
+# Create atom graphs for the second compound
 atom_graphs2 = graph_creation.create_coordinate_graphs(coords2)
 atom_graphs2 = graph_creation.add_charges(atom_graphs2, charges2)
 atom_graphs2 = graph_creation.add_bonds(atom_graphs2, bonds2)
@@ -392,9 +404,10 @@ atom_graphs2 = graph_creation.add_lengths(atom_graphs2, lengths2)
 unique_side_effects = side_effects.unique()
 side_effect_to_idx = {side_effect: idx for idx, side_effect in enumerate(unique_side_effects)}
 
+# Concatenate the graph data
 graphs_data = graph_creation.concatenate_data(atom_graphs1, atom_graphs2, side_effects, side_effect_to_idx)
 
-'''# Assign random seeds
+# Assign random seeds
 random.seed(42)
 torch.manual_seed(42)
 
@@ -402,12 +415,12 @@ torch.manual_seed(42)
 random.shuffle(graphs_data)
 split_index = int(0.8 * len(graphs_data))  # 80% train, 20% test
 train_data = graphs_data[:split_index]
-test_data = graphs_data[split_index:]'''
+test_data = graphs_data[split_index:]
 
 # Define the dimensions
 input_dim = 4
-hidden_dim = 32  # Hidden dimension
-output_dim = len(unique_side_effects)  # Number of classes (labels)
+hidden_dim = 32
+output_dim = len(unique_side_effects)
 
 # Create an instance of the model
 model = GCNGraphClassifier(input_dim, hidden_dim, output_dim)
@@ -416,9 +429,9 @@ criterion = nn.CrossEntropyLoss()
 # Define the optimizer
 optimizer = optim.Adam(model.parameters())
 
-'''# Test and train the model
+# Test and train the model - WARNING: Train/test can take up to 20 minutes
 train_model(train_data)
-evaluate_model(test_data)'''
+evaluate_model(test_data)
 
 if __name__ == "__main__":
     # Load the pyqt view

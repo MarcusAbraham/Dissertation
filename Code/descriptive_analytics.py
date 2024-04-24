@@ -1,21 +1,23 @@
 import pandas as pd
 
 
+# Function to count the number of unique side effects in the dataset
 def count_side_effects(filename):
     # Load the CSV file into a DataFrame
     df = pd.read_csv(filename)
 
-    # Count the number of unique values in the specified column
+    # Count the number of unique values in the side effect column
     unique_side_effects = df["Side Effect Name"].nunique()
 
     print(f"Unique side effects: {unique_side_effects}")
 
 
+# Function to count the amount of drug pairs for each side effect
 def count_unique_values(filename):
     # Load the CSV file into a DataFrame
     df = pd.read_csv(filename)
 
-    # Count the number of unique values in the specified column
+    # Count the number of samples for each unique value in the side effect column
     unique_values_count = df["Side Effect Name"].value_counts()
 
     # Display unique values and their counts
@@ -24,6 +26,7 @@ def count_unique_values(filename):
         print(f"{value} (Count: {count})")
 
 
+# Function to filter the side effects with few samples
 def filter_data(filename):
     # Read CSV file into a DataFrame
     df = pd.read_csv(filename)
@@ -31,8 +34,7 @@ def filter_data(filename):
     # Count unique values in the side effect column
     counts = df.iloc[:, 13].value_counts()
 
-    # Filter rows based on counts
-    #filtered_df = df[df.iloc[:, 13].isin(counts[counts >= 50].index)]
+    # Filter for the top 3 side effects
     filtered_df = df[df.iloc[:, 13].isin(counts[counts >= 4200].index)]
 
     # Write filtered data to a new CSV file
@@ -40,8 +42,9 @@ def filter_data(filename):
 
 
 # Call the functions to count unique values
-#unique_effects = count_side_effects("ChChSe-Decagon_polypharmacy/computedData.csv")
-#count_unique_values("ChChSe-Decagon_polypharmacy/computedData.csv")
+count_side_effects("ChChSe-Decagon_polypharmacy/computedData.csv")
+count_unique_values("ChChSe-Decagon_polypharmacy/computedData.csv")
 
-#Filter the data to remove any side effects with less than 50 pairs
-#filter_data("ChChSe-Decagon_polypharmacy/computedData.csv")
+#Filter the data
+filter_data("ChChSe-Decagon_polypharmacy/computedData.csv")
+
